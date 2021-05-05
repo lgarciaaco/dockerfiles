@@ -10,14 +10,14 @@
 # Extract Kibana artifact
 ################################################################################
 FROM centos:8 AS builder
-ENV ARCH aarch64
-ENV KIBANA_VERSION 7.12.1
+
 
 RUN cd /opt && \
   curl --retry 8 -s -L \
     --output kibana.tar.gz \
-     https://artifacts.elastic.co/downloads/kibana/kibana-${KIBANA_VERSION}-linux-${ARCH}.tar.gz && \
+     https://artifacts.elastic.co/downloads/kibana/kibana-7.12.1-linux-$(arch).tar.gz && \
   cd -
+
 
 RUN mkdir /usr/share/kibana
 WORKDIR /usr/share/kibana
@@ -36,7 +36,7 @@ RUN chmod -R g=u /usr/share/kibana
 ################################################################################
 FROM centos:8
 EXPOSE 5601
-ENV ARCH aarch64
+
 
 RUN for iter in {1..10}; do \
       yum update --setopt=tsflags=nodocs -y && \
@@ -50,7 +50,7 @@ RUN for iter in {1..10}; do \
 # Add an init process, check the checksum to make sure it's a match
 RUN set -e ; \
     TINI_BIN="" ; \
-    case "${ARCH}" in \
+    case "$(arch)" in \
         aarch64) \
             TINI_BIN='tini-arm64' ; \
             ;; \
@@ -75,12 +75,14 @@ RUN fc-cache -v
 # Bring in Kibana from the initial stage.
 COPY --from=builder --chown=1000:0 /usr/share/kibana /usr/share/kibana
 WORKDIR /usr/share/kibana
+RUN ln -s /usr/share/kibana /opt/kibana
 
 ENV ELASTIC_CONTAINER true
 ENV PATH=/usr/share/kibana/bin:$PATH
 
-# Set some Kibana configuration defaults.
-COPY --chown=1000:0 config/kibana.yml /usr/share/kibana/config/kibana.yml
+# Add the launcher/wrapper script. It knows how to interpret environment
+# variables and translate them to Kibana CLI options.
+COPY --chown=1000:0 kibana/bin/kibana-docker /usr/local/bin/
 
 # Ensure gid 0 write permissions for OpenShift.
 RUN chmod g+ws /usr/share/kibana && \
@@ -118,4 +120,6 @@ LABEL org.label-schema.build-date="2021-04-20T20:04:40.463Z" \
 
 USER kibana
 
-CMD ["/usr/share/kibana/bin/kibana", "-e", "-c", "config/kibana.yml"]
+ENTRYPOINT ["/bin/tini", "--"]
+
+CMD ["/usr/local/bin/kibana-docker"]

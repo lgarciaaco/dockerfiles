@@ -35,9 +35,7 @@ jobs:
           push: false
           platforms: linux/arm64
           tags: lgarciaac/kibana-arm64:${{ matrix.version }}
-          file: Dockerfile
-          build-args: |
-            KIBANA_VERSION=${{ matrix.version }}
+          file: kibana/Dockerfile
       - 
         name: Build kibana:${{ matrix.version }} and push
         if: github.event_name == 'push'
@@ -46,6 +44,4 @@ jobs:
           push: true
           platforms: linux/arm64
           tags: lgarciaac/kibana-arm64:${{ matrix.version }}
-          file: Dockerfile
-          build-args: |
-            KIBANA_VERSION=${{ matrix.version }}
+          file: kibana/Dockerfile
